@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Test / scratch artifacts
+scratch/
+.web-fetch-rr.json
+/tmp/web-fetch-*
+
+# Local config (may contain credentials for future provider extensions)
+.web-fetch.json
+.web-fetch/
