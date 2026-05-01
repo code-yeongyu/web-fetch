@@ -93,7 +93,7 @@ jq -r '._meta.final_url, ._meta.content_type, ._meta.bytes' "$JSON"
 jq -r '._meta.attempts[] | "\(.user_agent): \(.status) (\(.duration_ms)ms)"' "$JSON"
 ```
 
-For Windows PowerShell, see `references/pipelines.md`.
+For Windows PowerShell, see `references/pipelines-windows.md`.
 
 ## What gets written
 
@@ -165,6 +165,8 @@ If both attempts fail, the script exits with code 2 and the trace records both a
 
 ## More
 
-- `references/pipelines.md` - rg/jq/awk worked examples + Windows PowerShell equivalents.
+- `references/pipelines-posix.md` - rg/jq/awk worked examples for macOS / Linux / WSL / Git Bash.
+- `references/pipelines-windows.md` - PowerShell + cmd equivalents.
+- `references/compat.md` - per-OS support matrix, Python/curl version floor, Windows / WSL / Alpine / RHEL 7 setup.
 - `references/troubleshooting.md` - 403 / 429 / Cloudflare / TLS / proxy gotchas and how to read the trace.
 - `README.md` - install, packaging, registration into pi/senpi/.agents/skills/, project structure.

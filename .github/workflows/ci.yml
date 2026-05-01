@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: smoke (${{ matrix.os }} / py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04, macos-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Show toolchain versions
+        shell: bash
+        run: |
+          python --version
+          curl --version | head -1 || true
+          echo "OS: ${{ matrix.os }}"
+
+      - name: Run smoke tests (POSIX)
+        if: runner.os != 'Windows'
+        run: bash tests/smoke.sh
+
+      - name: Run smoke tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/smoke.ps1
+
+      - name: Run smoke tests with urllib transport (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          python scripts/web_fetch.py https://example.com --use-urllib --output-dir ./_urllib --quiet
+          test -f ./_urllib/result.md
+          grep -q "Example Domain" ./_urllib/result.md
+          python -c "import json; m=json.load(open('./_urllib/result.json'))['_meta']; assert m['transport']=='urllib', m['transport']"
+
+      - name: Run smoke tests with urllib transport (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python scripts/web_fetch.py https://example.com --use-urllib --output-dir ./_urllib --quiet
+          if (-not (Test-Path './_urllib/result.md')) { throw 'result.md missing' }
+          $md = Get-Content './_urllib/result.md' -Raw
+          if ($md -notmatch 'Example Domain') { throw 'content missing' }
+          $meta = (Get-Content './_urllib/result.json' -Raw | ConvertFrom-Json)._meta
+          if ($meta.transport -ne 'urllib') { throw "expected urllib, got $($meta.transport)" }
+
+  syntax-check-old-python:
+    name: syntax check (Python 3.9 / 3.10 floor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    strategy:
+      matrix:
+        floor: ['3.9', '3.10']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.floor }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.floor }}
+      - name: Compile-check the script targets ${{ matrix.floor }}
+        run: |
+          python -c "
+          import ast, sys
+          src = open('scripts/web_fetch.py').read()
+          tree = ast.parse(src, feature_version=tuple(map(int, '${{ matrix.floor }}'.split('.'))))
+          print('parses on ${{ matrix.floor }}: OK')
+          "
+          python -m py_compile scripts/web_fetch.py
+          echo 'py_compile passed on ${{ matrix.floor }}'
+
+  lint:
+    name: lint and structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify SKILL.md frontmatter shape
+        run: |
+          python - <<'PY'
+          import re, sys
+          src = open('SKILL.md').read()
+          assert src.startswith('---\n'), 'SKILL.md must start with YAML frontmatter'
+          end = src.find('\n---\n', 4)
+          assert end > 0, 'SKILL.md missing closing ---'
+          fm = src[4:end]
+          assert re.search(r'^name:\s*web-fetch\s*$', fm, re.M), 'frontmatter missing name: web-fetch'
+          assert re.search(r'^description:', fm, re.M), 'frontmatter missing description'
+          print('frontmatter OK')
+          PY
+      - name: Verify no Korean in skill content
+        run: |
+          if grep -rn '[가-힣]' SKILL.md README.md references/ scripts/ tests/ 2>/dev/null; then
+            echo 'FAIL: Korean characters found in skill content' >&2
+            exit 1
+          fi
+          echo 'no korean'
+      - name: Verify required files exist
+        run: |
+          for f in SKILL.md README.md LICENSE scripts/web_fetch.py tests/smoke.sh tests/smoke.ps1 \
+                   references/pipelines-posix.md references/pipelines-windows.md \
+                   references/troubleshooting.md references/compat.md; do
+            test -f "$f" || { echo "FAIL: missing $f"; exit 1; }
+          done
+          echo 'all required files present'

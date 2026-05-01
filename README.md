@@ -60,10 +60,14 @@ web-fetch/
 ├── scripts/
 │   └── web_fetch.py               single-file Python 3 stdlib script
 ├── references/
-│   ├── pipelines.md               rg / jq / awk patterns + Windows PowerShell
+│   ├── pipelines-posix.md         rg / jq / awk patterns for macOS / Linux / WSL / Git Bash
+│   ├── pipelines-windows.md       PowerShell + cmd equivalents
+│   ├── compat.md                  per-OS support matrix, Python/curl version floor
 │   └── troubleshooting.md         403 / 429 / Cloudflare / TLS gotchas
-└── tests/
-    └── smoke.sh                   self-test (fetches example.com)
+├── tests/
+│   ├── smoke.sh                   POSIX self-test (fetches example.com)
+│   └── smoke.ps1                  PowerShell self-test (Windows CI)
+└── .github/workflows/ci.yml       matrix CI: macos/ubuntu/windows x py 3.9-3.13
 ```
 
 ## What it does
@@ -95,13 +99,16 @@ The simplicity is the point. If you need providers / fallback / load-balancing, 
 - Python ≥ 3.9 (stdlib only).
 - `curl` (optional but recommended; auto-detected). Windows 10 1803+ ships `curl.exe`.
 
+For older systems (RHEL 7, Ubuntu 18.04, etc.) and Windows-specific setup, see [`references/compat.md`](./references/compat.md).
+
 ## Testing
 
 ```bash
-bash tests/smoke.sh
+bash tests/smoke.sh        # POSIX (macOS / Linux / WSL / Git Bash)
+pwsh tests/smoke.ps1       # Windows (PowerShell 5.1+ or 7+)
 ```
 
-The smoke test fetches `https://example.com`, verifies markdown conversion, and checks the trace shape.
+CI runs the matrix on every push: `{macos-latest, ubuntu-latest, ubuntu-22.04, windows-latest}` x `{Python 3.9, 3.10, 3.11, 3.12, 3.13}` plus a syntax-floor check on Python 3.9 and 3.10.
 
 ## License
 
