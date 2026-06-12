@@ -27,7 +27,7 @@ Why 3.9 and not older:
 - The script uses `from __future__ import annotations`, so PEP 585 generic syntax (`dict[str, str]` etc.) works at parse time on 3.7+.
 - `subprocess.run(capture_output=True)` requires 3.7+.
 - We never call `eval()` on annotations, so type-hint shape is irrelevant at runtime.
-- 3.9 is on extended security support through 2025-10. Anything older is EOL upstream.
+- 3.9 reached upstream end-of-life in 2025-10. It remains the floor only because it is still what ships on older LTS distros; prefer 3.10+ wherever you can choose.
 
 For older Pythons, you have two options:
 
